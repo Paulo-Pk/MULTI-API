@@ -49,17 +49,24 @@ export async function POST(request: NextRequest) {
     const csrf = String(form.get('csrf') ?? '');
     const cookie = request.cookies.get('mcp_oauth_csrf')?.value ?? '';
     if (!csrf || !safeEqual(csrf, cookie)) return page('<p>Sessão inválida. Reinicie a conexão no cliente MCP.</p>', 400);
-    const pending = await consumeJson<Pending>('mcp:oauth:pending:' + csrf);
+    const pending = await readJson<Pending>('mcp:oauth:pending:' + csrf);
     if (!pending || pending.csrf !== csrf) return page('<p>Solicitação expirada ou já utilizada.</p>', 400);
     const redirect = new URL(pending.redirectUri);
-    if (String(form.get('decision') ?? '') !== 'approve') {
+    const decision = String(form.get('decision') ?? '');
+    if (decision === 'approve') {
+      const supplied = String(form.get('owner_token') ?? '');
+      const expected = process.env.MCP_ACCESS_TOKEN ?? '';
+      if (!expected || !safeEqual(supplied, expected)) return page('<p>Token administrativo incorreto. A solicitação continua válida; tente novamente.</p>', 401);
+    } else {
+      await consumeJson<Pending>('mcp:oauth:pending:' + csrf);
       redirect.searchParams.set('error', 'access_denied');
       redirect.searchParams.set('state', pending.state);
       return Response.redirect(redirect, 302);
     }
-    const supplied = String(form.get('owner_token') ?? '');
-    const expected = process.env.MCP_ACCESS_TOKEN ?? '';
-    if (!expected || !safeEqual(supplied, expected)) return page('<p>Token administrativo incorreto. Reinicie a conexão.</p>', 401);
+
+    // Consume the pending request only after validating the administrator credential.
+    const consumed = await consumeJson<Pending>('mcp:oauth:pending:' + csrf);
+    if (!consumed || consumed.csrf !== csrf) return page('<p>Solicitação expirada ou já utilizada.</p>', 400);
     const code = randomSecret('mcp_code_');
     await storeJson('mcp:oauth:code:' + code, {
       clientId: pending.clientId, redirectUri: pending.redirectUri, challenge: pending.challenge,
