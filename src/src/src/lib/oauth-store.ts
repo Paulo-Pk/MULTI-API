@@ -60,6 +60,11 @@ export async function storeOAuthRefreshToken(token: string, record: { clientId: 
   await storeJson('mcp:oauth:refresh:' + digest, record, ttlSeconds);
 }
 
+export async function readOAuthRefreshToken(token: string): Promise<{ clientId: string; scope: string; resource: string } | null> {
+  const digest = createHash('sha256').update(token).digest('hex');
+  return readJson<{ clientId: string; scope: string; resource: string }>('mcp:oauth:refresh:' + digest);
+}
+
 export async function consumeOAuthRefreshToken(token: string): Promise<{ clientId: string; scope: string; resource: string } | null> {
   const digest = createHash('sha256').update(token).digest('hex');
   return consumeJson<{ clientId: string; scope: string; resource: string }>('mcp:oauth:refresh:' + digest);
