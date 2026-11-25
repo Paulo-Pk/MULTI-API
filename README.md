@@ -24,7 +24,7 @@ Não configure essa variável até decidir quais provedores podem ser usados e c
 
 ## Variáveis de ambiente
 
-- `MCP_ACCESS_TOKEN`: token Bearer para proteger o endpoint MCP.
+- `MCP_ACCESS_TOKEN`: token Bearer legado e credencial administrativa para aprovar conexões OAuth.
 - `AI_ALLOWED_PROVIDERS`: allowlist explícita; vazia por padrão.
 - Chaves opcionais: `NVIDIA_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, `GROQ_API_KEY`, `DEEPSEEK_API_KEY`, `MISTRAL_API_KEY`, `OPENAI_API_KEY`, `TOGETHER_API_KEY`, `CEREBRAS_API_KEY`, `SAMBANOVA_API_KEY`, `XAI_API_KEY`, `COHERE_API_KEY`, `NINEROUTER_API_KEY`.
 - Para 9Router: `NINEROUTER_BASE_URL`.
@@ -37,8 +37,8 @@ NVIDIA → Gemini → OpenRouter → Groq → DeepSeek → Mistral → OpenAI �
 
 ## Autenticação
 
-O endpoint mantém a autenticação Bearer existente com `MCP_ACCESS_TOKEN`. Este projeto não implementa OAuth 2.1 nesta versão.
+O endpoint mantém o Bearer legado e implementa OAuth 2.1 Authorization Code com PKCE S256, registro dinâmico de clientes e metadados do servidor. O consentimento administrativo usa `MCP_ACCESS_TOKEN`; o Upstash Redis armazena clientes, códigos e tokens com expiração. O fluxo OAuth depende das variáveis Upstash já configuradas.
 
 ## Custos e testes
 
-O build não chama APIs de IA. Não há testes de provedores executados automaticamente. Chamadas só ocorrem quando o cliente invoca uma ferramenta e o provedor está explicitamente autorizado.
+O build não chama APIs de IA. Não há testes de provedores executados automaticamente. Chamadas só ocorrem quando o cliente invoca uma ferramenta e o provedor está explicitamente autorizado. OAuth não libera provedores: a allowlist continua vazia por padrão.
