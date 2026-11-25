@@ -3,6 +3,7 @@ import {
   consumeJson,
   consumeOAuthRefreshToken,
   randomSecret,
+  readOAuthRefreshToken,
   storeOAuthAccessToken,
   storeOAuthRefreshToken,
 } from '@/lib/oauth-store';
@@ -57,12 +58,19 @@ export async function POST(request: NextRequest) {
     if (grantType === 'refresh_token') {
       const supplied = String(form.get('refresh_token') ?? '');
       if (!supplied.startsWith('mcp_refresh_')) return oauthError('invalid_grant');
-      const record = await consumeOAuthRefreshToken(supplied);
-      if (!record || record.clientId !== clientId) return oauthError('invalid_grant');
+      const pending = await readOAuthRefreshToken(supplied);
+      if (!pending || pending.clientId !== clientId) return oauthError('invalid_grant');
       const resource = String(form.get('resource') ?? '');
-      if (resource && resource !== record.resource) return oauthError('invalid_target');
+      if (resource && resource !== pending.resource) return oauthError('invalid_target');
       const scope = String(form.get('scope') ?? '');
-      if (scope && scope !== record.scope) return oauthError('invalid_scope');
+      if (scope && scope !== pending.scope) return oauthError('invalid_scope');
+
+      // Consume only after validating the request. GETDEL still guarantees one-time rotation.
+      const record = await consumeOAuthRefreshToken(supplied);
+      if (!record || record.clientId !== pending.clientId ||
+          record.resource !== pending.resource || record.scope !== pending.scope) {
+        return oauthError('invalid_grant');
+      }
       const tokens = await issueTokens(record.clientId, record.scope, record.resource);
       return Response.json(tokens, {
         headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' },
