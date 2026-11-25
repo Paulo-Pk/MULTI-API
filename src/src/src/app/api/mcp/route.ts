@@ -1,5 +1,6 @@
 import { createMcpHandler } from 'mcp-handler';
 import { timingSafeEqual } from 'node:crypto';
+import { isOAuthAccessTokenValid } from '@/lib/oauth-store';
 import { z } from 'zod';
 
 const providers = {
@@ -214,32 +215,42 @@ function unauthorizedResponse(): Response {
   });
 }
 
-function authorize(req: Request): Response | null {
+async function authorize(req: Request): Promise<Response | null> {
   const expected = process.env.MCP_ACCESS_TOKEN;
   if (!expected) return new Response('MCP_ACCESS_TOKEN não configurado', { status: 503 });
 
+  const origin = new URL(req.url).origin;
+  const resourceMetadata = origin + '/.well-known/oauth-protected-resource/api/mcp';
   const received = req.headers.get('authorization') ?? '';
   const expectedHeader = 'Bearer ' + expected;
   const receivedBuffer = Buffer.from(received);
   const expectedBuffer = Buffer.from(expectedHeader);
-  if (receivedBuffer.length !== expectedBuffer.length ||
-      !timingSafeEqual(receivedBuffer, expectedBuffer)) {
-    return unauthorizedResponse();
-  }
-  return null;
+  if (receivedBuffer.length === expectedBuffer.length &&
+      timingSafeEqual(receivedBuffer, expectedBuffer)) return null;
+
+  const token = received.startsWith('Bearer ') ? received.slice(7) : '';
+  if (token && await isOAuthAccessTokenValid(token, origin + '/api/mcp')) return null;
+
+  return new Response('Unauthorized', {
+    status: 401,
+    headers: {
+      'WWW-Authenticate': 'Bearer resource_metadata="' + resourceMetadata + '"',
+      'Cache-Control': 'no-store',
+    },
+  });
 }
 
 export async function POST(req: Request) {
-  const denied = authorize(req);
+  const denied = await authorize(req);
   return denied ?? handler(req);
 }
 
 export async function GET(req: Request) {
-  const denied = authorize(req);
+  const denied = await authorize(req);
   return denied ?? handler(req);
 }
 
 export async function DELETE(req: Request) {
-  const denied = authorize(req);
+  const denied = await authorize(req);
   return denied ?? handler(req);
 }
