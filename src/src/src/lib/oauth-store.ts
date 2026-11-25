@@ -55,6 +55,16 @@ export async function storeOAuthAccessToken(token: string, record: { clientId: s
   await storeJson('mcp:oauth:access:' + digest, record, ttlSeconds);
 }
 
+export async function storeOAuthRefreshToken(token: string, record: { clientId: string; scope: string; resource: string }, ttlSeconds: number): Promise<void> {
+  const digest = createHash('sha256').update(token).digest('hex');
+  await storeJson('mcp:oauth:refresh:' + digest, record, ttlSeconds);
+}
+
+export async function consumeOAuthRefreshToken(token: string): Promise<{ clientId: string; scope: string; resource: string } | null> {
+  const digest = createHash('sha256').update(token).digest('hex');
+  return consumeJson<{ clientId: string; scope: string; resource: string }>('mcp:oauth:refresh:' + digest);
+}
+
 export async function isOAuthAccessTokenValid(token: string, resource: string): Promise<boolean> {
   if (!token.startsWith('mcp_oauth_')) return false;
   try {
