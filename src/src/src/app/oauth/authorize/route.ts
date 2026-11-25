@@ -37,7 +37,8 @@ export async function GET(request: NextRequest) {
     await storeJson('mcp:oauth:pending:' + csrf, { clientId, redirectUri, state, challenge, scope, resource, csrf } satisfies Pending, 600);
     const content = '<p>O aplicativo <strong>' + escapeHtml(client.client_name || 'Cliente MCP') + '</strong> solicita acesso às ferramentas deste servidor.</p><p>Provedores que não estiverem explicitamente liberados continuarão bloqueados.</p><form method="post"><input type="hidden" name="csrf" value="' + escapeHtml(csrf) + '"><label for="owner_token">Token administrativo do servidor</label><br><input id="owner_token" name="owner_token" type="password" autocomplete="current-password" required style="box-sizing:border-box;width:100%;padding:12px;margin:8px 0 18px"><button name="decision" value="approve" style="padding:12px 18px">Autorizar</button> <button name="decision" value="deny" formnovalidate style="padding:12px 18px">Cancelar</button></form><p style="color:#596579;font-size:13px">Use o valor de MCP_ACCESS_TOKEN configurado na Vercel. Não o compartilhe no chat.</p>';
     return page(content, 200, { 'Set-Cookie': 'mcp_oauth_csrf=' + csrf + '; HttpOnly; Secure; SameSite=Lax; Path=/oauth/authorize; Max-Age=600' });
-  } catch {
+  } catch (error) {
+    console.error('[oauth] authorization request failed:', error instanceof Error ? error.message.slice(0, 240) : 'unknown error');
     return page('<p>O serviço de autorização está temporariamente indisponível.</p>', 503);
   }
 }
